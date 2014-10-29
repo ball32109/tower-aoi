@@ -280,13 +280,12 @@ calc_rect(struct map *m, struct point *pos, int range, struct point *bl, struct 
 }
 
 void 
-make_table(lua_State *L,struct table *t,int stack) {
-	int index = 1;
+make_table(lua_State *L,struct table *t,int *index,int stack) {
 	int i;
 	for(i = 0;i < t->size;i++) {
 		if (t->slot[i].obj) {
 			lua_pushinteger(L, t->slot[i].obj->id);
-			lua_rawseti(L, stack - 1, index++);
+			lua_rawseti(L, stack - 1, (*index)++);
 		}
 	}
 }
@@ -297,7 +296,8 @@ add_marker(lua_State *L,struct map *m,struct object *obj) {
 	if (tl == NULL) 
 		return -1;
 	table_insert(tl->markers,obj->id,obj);
-	make_table(L,tl->watchers,-1);
+	int index = 1;
+	make_table(L,tl->watchers,&index,-1);
 	return 0;
 }
 
@@ -307,7 +307,8 @@ remove_marker(lua_State *L,struct map *m,struct object *obj) {
 	if (tl == NULL) 
 		return -1;
 	table_delete(tl->markers,obj->id);
-	make_table(L,tl->watchers,-1);
+	int index = 1;
+	make_table(L,tl->watchers,&index,-1);
 	return 0;
 }
 
@@ -317,6 +318,7 @@ add_watcher(lua_State *L,struct map *m,struct object *obj) {
 	if (calc_rect(m,&obj->cur,obj->range,&bl,&tr) < 0)
 		return -1;
 	
+	int index = 1;
 	int x,y;
 	for(y = bl.y;y <= tr.y;y++) {
 		for(x = bl.x;x <= tr.x;x++) {
@@ -324,7 +326,7 @@ add_watcher(lua_State *L,struct map *m,struct object *obj) {
 			if (tl == NULL)
 				return -1;
 			table_insert(tl->watchers,obj->id,obj);
-			make_table(L,tl->markers,-1);
+			make_table(L,tl->markers,&index,-1);
 		}
 	}
 	return 0;
@@ -364,9 +366,12 @@ update_marker(lua_State *L,struct map *m,struct object *obj,struct point *np) {
 		return 0;
 
 	table_delete(otl->markers,obj->id);
-	make_table(L,otl->watchers,-1);
+	int lindex = 1;
+	make_table(L,otl->watchers,&lindex,-1);
+
 	table_insert(ntl->markers,obj->id,obj);
-	make_table(L,ntl->watchers,-2);
+	int eindex = 1;
+	make_table(L,ntl->watchers,&eindex,-2);
 
 	return 0;
 }
@@ -396,6 +401,7 @@ update_watcher(lua_State *L,struct map *m,struct object *obj,struct point *np) {
 	if (calc_rect(m, &obj->cur, obj->range, &nbl, &ntr) < 0)
 		return -1;
 
+	int lindex = 1;
 	int x, y;
 	for (y = nbl.y; y <= ntr.y; y++) {
 		for (x = nbl.x; x <= ntr.x; x++) {
@@ -407,10 +413,11 @@ update_watcher(lua_State *L,struct map *m,struct object *obj,struct point *np) {
 				return -1;
 
 			table_delete(tl->watchers,obj->id);
-			make_table(L,tl->markers,-1);
+			make_table(L,tl->markers,&lindex,-1);
 		}
 	}
 
+	int eindex = 1;
 	for (y = obl.y; y <= otr.y; y++) {
 		for (x = obl.x; x <= otr.x; x++) {
 			if (x >= nbl.x && x <= ntr.x && y >= nbl.y && y <= ntr.y)
@@ -421,7 +428,7 @@ update_watcher(lua_State *L,struct map *m,struct object *obj,struct point *np) {
 				return -1;
 
 			table_insert(tl->watchers,obj->id,obj);
-			make_table(L,tl->markers,-2);
+			make_table(L,tl->markers,&eindex,-2);
 		}
 	}
 	return 0;
@@ -563,7 +570,7 @@ _aoi_enter(lua_State *L) {
 	lua_pushlightuserdata(L, obj);
 
 	add_object(L,&aoi->map,obj);
-	
+
 	return 3;
 }
 
